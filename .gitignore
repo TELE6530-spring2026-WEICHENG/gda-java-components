@@ -2,3 +2,5 @@
 /target/
 **/cert
 **/cred
+.idea/
+/oracleJdk-21.jdk/
