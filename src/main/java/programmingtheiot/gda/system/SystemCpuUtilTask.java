@@ -12,7 +12,8 @@
 package programmingtheiot.gda.system;
 
 import java.lang.management.ManagementFactory;
-
+import java.lang.management.OperatingSystemMXBean;
+import java.util.logging.Logger;
 import programmingtheiot.common.ConfigConst;
 
 
@@ -20,16 +21,16 @@ import programmingtheiot.common.ConfigConst;
  * Shell representation of class for student implementation.
  * 
  */
-public class SystemCpuUtilTask extends BaseSystemUtilTask
-{
+public class SystemCpuUtilTask extends BaseSystemUtilTask {
+
+	private static final Logger _Logger = Logger.getLogger(SystemCpuUtilTask.class.getName());
 	// constructors
 	
 	/**
 	 * Default.
 	 * 
 	 */
-	public SystemCpuUtilTask()
-	{
+	public SystemCpuUtilTask() {
 		super(ConfigConst.NOT_SET, ConfigConst.DEFAULT_TYPE_ID);
 	}
 	
@@ -37,9 +38,37 @@ public class SystemCpuUtilTask extends BaseSystemUtilTask
 	// public methods
 	
 	@Override
-	public float getTelemetryValue()
-	{
-		return 0.0f;
+	public float getTelemetryValue() {
+		// Get the number of available CUP
+		int cpuCount = ManagementFactory.getOperatingSystemMXBean().getAvailableProcessors();
+		_Logger.info("Available CPU Count: " + cpuCount);
+
+		OperatingSystemMXBean operatingSystemMXBean = ManagementFactory.getOperatingSystemMXBean();
+		double loadAvg = operatingSystemMXBean.getSystemLoadAverage();
+		_Logger.info("System Load Average: " + loadAvg);
+
+		if (loadAvg < 0.0) {
+			_Logger.info("CPU loadAvg unsupported");
+			return 0.0f;
+		}
+		double workLoadPressure = loadAvg / cpuCount;
+
+		int level = (workLoadPressure < 0.70) ? 0
+				: (workLoadPressure <= 1.00) ? 1
+				: (workLoadPressure <= 1.50) ? 2
+				: 3;
+
+		switch (level) {
+			case 0:
+				_Logger.info("CPU is not busy");
+			case 1:
+				_Logger.info("CPU is busy");
+			case 2:
+				_Logger.info("CPU is saturated");
+			case 3:
+				_Logger.info("CPU is overloaded");
+		}
+		return (float) loadAvg;
 	}
 	
 }
