@@ -18,24 +18,19 @@ import programmingtheiot.common.ConfigConst;
 /**
  *
  */
-public abstract class BaseSystemUtilTask
-{
-	// static
-	
-	private static final Logger _Logger =
-		Logger.getLogger(BaseSystemUtilTask.class.getName());
-	
-	
-	// private
-	
+public abstract class BaseSystemUtilTask {
+
+	private static final Logger _Logger = Logger.getLogger(BaseSystemUtilTask.class.getName());
 	private String name   = ConfigConst.NOT_SET;
 	private int    typeID = ConfigConst.DEFAULT_TYPE_ID;
 	
-	// constructors
-	
-	public BaseSystemUtilTask(String name, int typeID)
-	{
-		super();
+
+	public BaseSystemUtilTask(String name, int typeID) {
+
+		if (name != null && !name.isEmpty()) {
+			this.name = name;
+		}
+		this.typeID = typeID;
 	}
 	
 	
@@ -43,7 +38,7 @@ public abstract class BaseSystemUtilTask
 	
 	public String getName()
 	{
-		return null;
+		return this.name;
 	}
 	
 	/**
@@ -53,7 +48,7 @@ public abstract class BaseSystemUtilTask
 	 */
 	public int getTypeID()
 	{
-		return 0;
+		return this.typeID;
 	}
 	
 	/**
