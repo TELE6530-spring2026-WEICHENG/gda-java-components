@@ -11,13 +11,6 @@
 
 package programmingtheiot.data;
 
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.List;
-
-import com.google.gson.Gson;
-
 /**
  * Shell representation of class for student implementation.
  *
@@ -29,7 +22,7 @@ public class DataUtil
 	private static final DataUtil _Instance = new DataUtil();
 
 	/**
-	 * Returns the Singleton instance of this class.
+	 * Returns the Singleton  instance of this class.
 	 * 
 	 * @return ConfigUtil
 	 */
@@ -51,6 +44,7 @@ public class DataUtil
 	private DataUtil()
 	{
 		super();
+
 	}
 	
 	
