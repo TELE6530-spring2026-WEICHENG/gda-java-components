@@ -8,13 +8,18 @@
 
 package programmingtheiot.unit.data;
 
-import static org.junit.Assert.*;
-
 import java.util.logging.Logger;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
-import programmingtheiot.data.*;
+import programmingtheiot.data.ActuatorData;
+import programmingtheiot.data.DataUtil;
+import programmingtheiot.data.SensorData;
+import programmingtheiot.data.SystemPerformanceData;
+import programmingtheiot.data.SystemStateData;
 
 /**
  * This test case class contains very basic unit tests for
@@ -121,7 +126,7 @@ public class DataUtilTest
 	 * 
 	 */
 	
-//	@Test
+	@Test
 	public void testSystemStateDatatoJsonAndBack()
 	{
 		DataUtil dataUtil = DataUtil.getInstance();

@@ -11,15 +11,17 @@
 
 package programmingtheiot.gda.system;
 
-import programmingtheiot.common.ConfigConst;
-import programmingtheiot.common.ConfigUtil;
-import programmingtheiot.common.IDataMessageListener;
-
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+
+import programmingtheiot.common.ConfigConst;
+import programmingtheiot.common.ConfigUtil;
+import programmingtheiot.common.IDataMessageListener;
+import programmingtheiot.common.ResourceNameEnum;
+import programmingtheiot.data.SystemPerformanceData;
 
 /**
  * Shell representation of class for student implementation.
@@ -30,13 +32,15 @@ public class SystemPerformanceManager {
 	private static final Logger _Logger = Logger.getLogger(SystemPerformanceManager.class.getName());
 	private int pollRate = ConfigConst.DEFAULT_POLL_CYCLES;
 	private boolean isStarted = false;
+	private String locationID = ConfigConst.NOT_SET;
 
 	private Runnable taskRunner = null;
 	private ScheduledExecutorService scheduler =null;
 
 	private BaseSystemUtilTask sysCpuUtilTask = null;
 	private BaseSystemUtilTask sysMemoryUtilTask = null;
-
+	
+	private IDataMessageListener dataMsgListener = null;
 
 	// constructors
 	/**
@@ -47,6 +51,12 @@ public class SystemPerformanceManager {
 		this.pollRate =
 				ConfigUtil.getInstance().getInteger(
 						ConfigConst.GATEWAY_DEVICE, ConfigConst.POLL_CYCLES_KEY, ConfigConst.DEFAULT_POLL_CYCLES);
+
+
+		this.locationID =
+			ConfigUtil.getInstance().getProperty(
+				ConfigConst.GATEWAY_DEVICE, ConfigConst.LOCATION_ID_PROP, ConfigConst.NOT_SET);
+
 
 		if (this.pollRate <= 0) {
 			this.pollRate = ConfigConst.DEFAULT_POLL_CYCLES;
@@ -67,10 +77,25 @@ public class SystemPerformanceManager {
 		float cpuUtil = this.sysCpuUtilTask.getTelemetryValue();
 		float memUtil = this.sysMemoryUtilTask.getTelemetryValue();
 		_Logger.fine("CPU utilization: " + cpuUtil + ", Mem utilization: " + memUtil);
+
+		// create data object and send to listener
+		SystemPerformanceData data = new SystemPerformanceData();
+		data.setCpuUtilization(cpuUtil);
+		data.setMemoryUtilization(memUtil);
+		data.setLocationID(this.locationID);
+
+		if (this.dataMsgListener != null) {
+			this.dataMsgListener.handleSystemPerformanceMessage(
+				ResourceNameEnum.GDA_SYSTEM_PERF_MSG_RESOURCE,
+				data);
+		}
 	}
 	
 	public void setDataMessageListener(IDataMessageListener listener)
 	{
+		if (listener != null) {
+			this.dataMsgListener = listener;
+		}
 	}
 	
 	public boolean startManager() {
@@ -98,5 +123,5 @@ public class SystemPerformanceManager {
 
 		return true;
 	}
-	
+
 }
