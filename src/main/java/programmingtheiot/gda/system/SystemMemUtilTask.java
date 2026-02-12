@@ -15,7 +15,6 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.util.logging.Logger;
 
-
 import programmingtheiot.common.ConfigConst;
 
 /**
@@ -46,7 +45,8 @@ public class SystemMemUtilTask extends BaseSystemUtilTask {
 		double memUsed = (double) memUsage.getUsed();
 		double memMax  = (double) memUsage.getMax();
 
-		_Logger.fine("Mem used: " + memUsed + "; Mem Max: " + memMax);
+		String msg = "Mem used: " + memUsed + "; Mem Max: " + memMax;
+		_Logger.info(msg);
 
 		double memUtil = (memUsed / memMax) * 100.0d;
 
