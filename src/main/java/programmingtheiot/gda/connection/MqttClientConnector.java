@@ -167,10 +167,14 @@ public class MqttClientConnector implements IPubSubClient, MqttCallbackExtended
 		return false;
 	}
 
+
+
 	public boolean isConnected()
 	{
 		return (this.mqttClient != null && this.mqttClient.isConnected());
 	}
+	
+
 	
 	@Override
 	public boolean publishMessage(ResourceNameEnum topicName, String msg, int qos)
