@@ -49,7 +49,7 @@ keepAlive      = 5
 enableAuth     = False
 enableCrypt    = False
 useAsyncClient = False
-clientID       = GDAMqttClient
+clientID       = GDAMqttClient_test
 
 #
 # CoAP client and server configuration information
@@ -99,3 +99,4 @@ enableSystemPerformance = False
 testGdaDataPath         = /tmp/gda-data
 testCdaDataPath         = /tmp/cda-data
 testEmptyApp            = False
+enableRunForever        = True
