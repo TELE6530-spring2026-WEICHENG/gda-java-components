@@ -167,6 +167,8 @@ public class ConfigConst
 	public static final String UPDATE_NOTIFICATIONS_MSG      = "UpdateMsg";
 	public static final String RESOURCE_REGISTRATION_REQUEST = "ResourceRegRequest";
 
+	public static final String MQTT_GATEWAY_CLIENT_ID = "GDAMqttClient";
+
 	/*****
 	 * Configuration Sections, Keys and Defaults
 	 */
@@ -240,6 +242,7 @@ public class ConfigConst
 	public static final String PORT_KEY             = "port";
 	public static final String SECURE_PORT_KEY      = "securePort";
 	public static final String USE_ASYNC_CLIENT_KEY = "useAsyncClient";
+	public static final String CLIENT_ID_KEY        = "clientID";
 	
 	public static final String ROOT_CERT_ALIAS = "root";
 	

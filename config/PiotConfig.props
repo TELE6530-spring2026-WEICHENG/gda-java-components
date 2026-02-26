@@ -49,6 +49,7 @@ keepAlive      = 60
 enableAuth     = False
 enableCrypt    = False
 useAsyncClient = False
+clientID       = GDAMqttClient
 
 #
 # CoAP client and server configuration information
@@ -62,6 +63,24 @@ securePort     = 5684
 enableAuth     = False
 enableCrypt    = False
 enableConfirmedMsgs = True
+
+#
+# Redis persistence configuration information
+#
+[Data.GatewayService.Redis]
+credFile   = ./cred/PiotRedisCred.props
+host       = localhost
+port       = 6379
+enableAuth = True
+
+#
+# InfluxDB persistence configuration information
+#
+[Data.GatewayService.Influx]
+credFile   = ./cred/PiotInfluxCred.props
+host       = localhost
+port       = 8086
+enableAuth = True
 
 #
 # GDA specific configuration information
