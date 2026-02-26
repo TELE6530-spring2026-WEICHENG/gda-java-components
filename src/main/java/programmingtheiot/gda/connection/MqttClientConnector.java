@@ -11,8 +11,6 @@
 
 package programmingtheiot.gda.connection;
 
-import java.util.Properties;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -21,8 +19,6 @@ import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
-import org.eclipse.paho.client.mqttv3.MqttPersistenceException;
-import org.eclipse.paho.client.mqttv3.MqttSecurityException;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 import programmingtheiot.common.ConfigConst;
@@ -42,6 +38,20 @@ public class MqttClientConnector implements IPubSubClient, MqttCallbackExtended
 		Logger.getLogger(MqttClientConnector.class.getName());
 	
 	// params
+	private boolean useAsyncClient = false;
+
+	private MqttClient           mqttClient = null;
+	private MqttConnectOptions   connOpts = null;
+	private MemoryPersistence    persistence = null;
+	private IDataMessageListener dataMsgListener = null;
+
+	private String  clientID = null;
+	private String  brokerAddr = null;
+	private String  host = ConfigConst.DEFAULT_HOST;
+	private String  protocol = ConfigConst.DEFAULT_MQTT_PROTOCOL;
+	private int     port = ConfigConst.DEFAULT_MQTT_PORT;
+	private int     brokerKeepAlive = ConfigConst.DEFAULT_KEEP_ALIVE;
+	private int    	defaultQos = ConfigConst.DEFAULT_QOS;
 	
 	
 	// constructors
@@ -53,7 +63,47 @@ public class MqttClientConnector implements IPubSubClient, MqttCallbackExtended
 	public MqttClientConnector()
 	{
 		super();
+
+		ConfigUtil configUtil = ConfigUtil.getInstance();
+	
+		this.host =
+			configUtil.getProperty(
+				ConfigConst.MQTT_GATEWAY_SERVICE, ConfigConst.HOST_KEY, ConfigConst.DEFAULT_HOST);
+		
+		this.port =
+			configUtil.getInteger(
+				ConfigConst.MQTT_GATEWAY_SERVICE, ConfigConst.PORT_KEY, ConfigConst.DEFAULT_MQTT_PORT);
+		
+		this.brokerKeepAlive =
+			configUtil.getInteger(
+				ConfigConst.MQTT_GATEWAY_SERVICE, ConfigConst.KEEP_ALIVE_KEY, ConfigConst.DEFAULT_KEEP_ALIVE);
+
+		this.useAsyncClient =
+			configUtil.getBoolean(
+				ConfigConst.MQTT_GATEWAY_SERVICE, ConfigConst.USE_ASYNC_CLIENT_KEY);
+		
+		// Set ClientID
+		initClientParameters(ConfigConst.MQTT_GATEWAY_SERVICE);
+
+		// MQTT connection parameters
+		this.persistence = new MemoryPersistence();
+		this.connOpts = new MqttConnectOptions();
+		
+		this.connOpts.setKeepAliveInterval(this.brokerKeepAlive);
+		
+		// If using a random clientID for each new connection, clean session should be 'true'
+		// But we use a fixed clientID, so we can set clean session to 'false' to maintain state across connections
+		this.connOpts.setCleanSession(false);
+		
+		// For connection recovery feature
+		this.connOpts.setAutomaticReconnect(true);
+		
+		// NOTE: Java URL library does not have a protocol handler for "tcp",
+		// so we need to construct the URL manually
+		this.brokerAddr = this.protocol + "://" + this.host + ":" + this.port;
+
 	}
+
 	
 	
 	// public methods
@@ -61,35 +111,150 @@ public class MqttClientConnector implements IPubSubClient, MqttCallbackExtended
 	@Override
 	public boolean connectClient()
 	{
+		try {
+			if (this.mqttClient == null) {
+				this.mqttClient = new MqttClient(this.brokerAddr, this.clientID, this.persistence);
+
+				// Set this class as the callback handler for MQTTClient -> connectComplete(), connectionLost(), messageArrived(), deliveryComplete()
+				this.mqttClient.setCallback(this);
+			}
+			
+			if (! this.mqttClient.isConnected()) {
+				_Logger.info("MQTT client connecting to broker: " + this.brokerAddr);
+
+				this.mqttClient.connect(this.connOpts);
+
+				return true;
+			} else {
+				_Logger.warning("MQTT client already connected to broker: " + this.brokerAddr);
+			}
+		} catch (MqttException e) {
+			_Logger.warning("Failed to connect MQTT client to broker: " + this.brokerAddr
+				+ " - reason: " + e.getReasonCode() + " - msg: " + e.getMessage());
+		}
+		
 		return false;
 	}
 
 	@Override
 	public boolean disconnectClient()
 	{
+		try {
+			if (this.mqttClient != null) {
+				if (this.mqttClient.isConnected()) {
+					_Logger.info("Disconnecting MQTT client from broker: " + this.brokerAddr);
+
+					this.mqttClient.disconnect();
+
+					return true;
+				} else {
+					_Logger.warning("MQTT client not connected to broker: " + this.brokerAddr);
+				}
+			}
+		} catch (Exception e) {
+			_Logger.warning("Failed to disconnect MQTT client from broker: " + this.brokerAddr
+				+ " - reason: " + e.getMessage());
+
+			// If disconnect fails, try to force close the connection
+			try {
+				this.mqttClient.close();
+				_Logger.info("Force closed MQTT client connection.");
+			} catch (Exception closeEx) {
+				_Logger.severe("Force close also failed: " + closeEx.getMessage());
+			}
+		}
+
 		return false;
 	}
 
+
+
 	public boolean isConnected()
 	{
-		return false;
+		return (this.mqttClient != null && this.mqttClient.isConnected());
 	}
+	
+
 	
 	@Override
 	public boolean publishMessage(ResourceNameEnum topicName, String msg, int qos)
 	{
+		if(topicName == null) {
+			_Logger.warning("Topic name is null, cannot publish MQTT message to broker: " + this.brokerAddr);
+			return false;
+		}
+
+		if(msg == null || msg.isEmpty()) {
+			_Logger.warning("Message is null or empty, cannot publish MQTT message to broker: " + this.brokerAddr);
+			return false;
+		}
+
+		if(qos < 0 || qos > 2) {
+			qos = this.defaultQos;
+		}
+		try {
+
+			byte[] payload = msg.getBytes();
+
+			// Paho library only accepts byte[] payload
+			MqttMessage mqttMsg = new MqttMessage(payload);
+
+			mqttMsg.setQos(qos);
+
+			this.mqttClient.publish(topicName.getResourceName(), mqttMsg);
+
+			_Logger.info("Published message to topic: " + topicName.getResourceName() + " - msg: " + msg);
+
+			return true;
+
+		} catch (Exception e) {
+			_Logger.severe("Failed to publish MQTT message to topic: " + topicName.getResourceName() + " - reason: " + e.getMessage());
+		}
 		return false;
 	}
 
 	@Override
 	public boolean subscribeToTopic(ResourceNameEnum topicName, int qos)
 	{
-		return false;
+		if(topicName == null) {
+			_Logger.warning("Topic name is null, cannot subscribe to MQTT topic on broker: " + this.brokerAddr);
+			return false;
+		}
+		if(qos < 0 || qos > 2) {
+			qos = this.defaultQos;
+		}
+		try {
+
+			this.mqttClient.subscribe(topicName.getResourceName(), qos);
+			_Logger.info("GDA: Subscribing to topic: " + topicName.getResourceName() + " with QoS: " + qos);
+			return true;
+
+		} catch (Exception e) {
+			_Logger.severe("Failed to subscribe to MQTT topic: " + topicName.getResourceName() + " - reason: " + e.getMessage());
+			return false;
+		}
+		
 	}
 
 	@Override
 	public boolean unsubscribeFromTopic(ResourceNameEnum topicName)
 	{
+		if (topicName == null) {
+			_Logger.warning("Resource is null. Unable to unsubscribe from topic: " + this.brokerAddr);
+			return false;
+		}
+		
+		try {
+
+			this.mqttClient.unsubscribe(topicName.getResourceName());
+
+			_Logger.info("Successfully unsubscribed from topic: " + topicName.getResourceName());
+			return true;
+
+		} catch (Exception e) {
+			_Logger.severe("Failed to unsubscribe from topic: " + topicName.getResourceName() + " - reason: " + e.getMessage());
+		}
+		
 		return false;
 	}
 
@@ -102,29 +267,42 @@ public class MqttClientConnector implements IPubSubClient, MqttCallbackExtended
 	@Override
 	public boolean setDataMessageListener(IDataMessageListener listener)
 	{
+		if(listener != null) {
+			this.dataMsgListener = listener;
+			return true;
+		}
 		return false;
 	}
 	
-	// callbacks
+
+
+	// callbacks 
 	
 	@Override
 	public void connectComplete(boolean reconnect, String serverURI)
 	{
+		_Logger.info("MQTT connection successful (is reconnect = " + reconnect + "). Broker: " + serverURI);
+
 	}
 
 	@Override
 	public void connectionLost(Throwable t)
 	{
+
+		_Logger.warning("Lost connection to MQTT broker: " + this.brokerAddr + " - reason: " + t.getMessage());
+
 	}
 	
 	@Override
 	public void deliveryComplete(IMqttDeliveryToken token)
 	{
+		_Logger.info("MqttClient callback - Delivered MQTT message with ID: " + token.getMessageId());
 	}
 	
 	@Override
 	public void messageArrived(String topic, MqttMessage msg) throws Exception
 	{
+		_Logger.info("MQTT message arrived on topic: '" + topic + "' with payload: " + msg.toString());
 	}
 
 	
@@ -138,7 +316,11 @@ public class MqttClientConnector implements IPubSubClient, MqttCallbackExtended
 	 */
 	private void initClientParameters(String configSectionName)
 	{
-		// TODO: implement this
+		ConfigUtil configUtil = ConfigUtil.getInstance();
+
+		this.clientID =
+			configUtil.getProperty(
+				configSectionName, ConfigConst.CLIENT_ID_KEY, ConfigConst.MQTT_GATEWAY_CLIENT_ID);
 	}
 	
 	/**

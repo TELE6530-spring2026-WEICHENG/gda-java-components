@@ -26,6 +26,7 @@ import programmingtheiot.gda.connection.CoapServerGateway;
 import programmingtheiot.gda.connection.IPersistenceClient;
 import programmingtheiot.gda.connection.IPubSubClient;
 import programmingtheiot.gda.connection.IRequestResponseClient;
+import programmingtheiot.gda.connection.MqttClientConnector;
 import programmingtheiot.gda.system.SystemPerformanceManager;
 
 /**
@@ -46,7 +47,7 @@ public class DeviceDataManager implements IDataMessageListener
 	private boolean enableCloudClient = false;
 	private boolean enableSmtpClient = false;
 	private boolean enablePersistenceClient = false;
-	private boolean enableSystemPerf = false;
+	private boolean enableSystemPerf = true;
 	
 	private IActuatorDataListener actuatorDataListener = null;
 	private IPubSubClient mqttClient = null;
@@ -79,9 +80,9 @@ public class DeviceDataManager implements IDataMessageListener
 		this.enablePersistenceClient =
 			configUtil.getBoolean(
 				ConfigConst.GATEWAY_DEVICE, ConfigConst.ENABLE_PERSISTENCE_CLIENT_KEY);
-		
-		this.sysPerfManager = new SystemPerformanceManager();
-		this.sysPerfManager.setDataMessageListener(this);
+
+		this.enableSystemPerf =
+			configUtil.getBoolean(ConfigConst.GATEWAY_DEVICE,  ConfigConst.ENABLE_SYSTEM_PERF_KEY);
 		
 		initConnections();
 	}
@@ -190,8 +191,23 @@ public class DeviceDataManager implements IDataMessageListener
 		}
 
 		if (this.enableMqttClient && this.mqttClient != null) {
-			boolean success = this.mqttClient.connectClient();
-			_Logger.info("MQTT client connection: " + (success ? "succeeded" : "failed"));
+			if(this.mqttClient.connectClient()){
+
+
+				_Logger.info("MQTT client connected successfully.");
+
+
+				int qos = ConfigConst.DEFAULT_QOS;
+
+				this.mqttClient.subscribeToTopic(ResourceNameEnum.GDA_MGMT_STATUS_MSG_RESOURCE, qos);
+				this.mqttClient.subscribeToTopic(ResourceNameEnum.CDA_ACTUATOR_RESPONSE_RESOURCE, qos);
+				this.mqttClient.subscribeToTopic(ResourceNameEnum.CDA_SENSOR_MSG_RESOURCE, qos);
+				this.mqttClient.subscribeToTopic(ResourceNameEnum.CDA_SYSTEM_PERF_MSG_RESOURCE, qos);
+
+			} else {
+				_Logger.warning("Failed to connect MQTT client.");
+				// May add retry logic or hard fail here depending on requirements
+			}
 		}
 
 		if (this.enableCoapServer && this.coapServer != null) {
@@ -216,9 +232,17 @@ public class DeviceDataManager implements IDataMessageListener
 		}
 
 		if (this.enableMqttClient && this.mqttClient != null) {
-			boolean success = this.mqttClient.disconnectClient();
-			_Logger.info("MQTT client disconnect: " + (success ? "succeeded" : "failed"));
-		}
+
+			this.mqttClient.unsubscribeFromTopic(ResourceNameEnum.GDA_MGMT_STATUS_MSG_RESOURCE);
+			this.mqttClient.unsubscribeFromTopic(ResourceNameEnum.CDA_ACTUATOR_RESPONSE_RESOURCE);
+			this.mqttClient.unsubscribeFromTopic(ResourceNameEnum.CDA_SENSOR_MSG_RESOURCE);
+			this.mqttClient.unsubscribeFromTopic(ResourceNameEnum.CDA_SYSTEM_PERF_MSG_RESOURCE);
+
+			if (this.mqttClient.disconnectClient()) {
+			_Logger.info("Successfully disconnected MQTT client from broker.");
+			} else {
+			_Logger.severe("Failed to disconnect MQTT client from broker.");
+			}
 
 		if (this.enableCoapServer && this.coapServer != null) {
 			boolean success = this.coapServer.stopServer();
@@ -231,6 +255,7 @@ public class DeviceDataManager implements IDataMessageListener
 		}
 
 		_Logger.info("DeviceDataManager stopped successfully.");
+		}
 	}
 
 	
@@ -245,8 +270,7 @@ public class DeviceDataManager implements IDataMessageListener
 	{
 		ConfigUtil configUtil = ConfigUtil.getInstance();
 	
-		this.enableSystemPerf =
-			configUtil.getBoolean(ConfigConst.GATEWAY_DEVICE,  ConfigConst.ENABLE_SYSTEM_PERF_KEY);
+		
 		
 		if (this.enableSystemPerf) {
 			this.sysPerfManager = new SystemPerformanceManager();
@@ -254,7 +278,8 @@ public class DeviceDataManager implements IDataMessageListener
 		}
 		
 		if (this.enableMqttClient) {
-			// TODO: implement this in Lab Module 7
+			this.mqttClient = new MqttClientConnector();
+			this.mqttClient.setDataMessageListener(this);
 		}
 		
 		if (this.enableCoapServer) {
