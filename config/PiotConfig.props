@@ -72,6 +72,7 @@ credFile   = ./cred/PiotRedisCred.props
 host       = localhost
 port       = 6379
 enableAuth = True
+dedupTtlSecs = 247
 
 #
 # InfluxDB persistence configuration information
@@ -89,8 +90,8 @@ enableAuth = True
 deviceLocationID        = gatewaydevice001
 enableLogging           = True
 pollCycleSecs           = 60
-enableMqttClient        = True
-enableCoapServer        = False
+enableMqttClient        = False
+enableCoapServer        = True
 enableCoapClient        = False
 enableCloudClient       = False
 enableSmtpClient        = False

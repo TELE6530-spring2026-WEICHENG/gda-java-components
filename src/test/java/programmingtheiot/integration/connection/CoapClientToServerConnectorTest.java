@@ -5,7 +5,7 @@
  * found in the LICENSE file at the top level of this repository.
  * 
  * Copyright (c) 2020 - 2025 by Andrew D. King
- */ 
+ */
 
 package programmingtheiot.integration.connection;
 
@@ -31,75 +31,67 @@ import programmingtheiot.gda.connection.*;
  * environment.
  *
  */
-public class CoapClientToServerConnectorTest
-{
+public class CoapClientToServerConnectorTest {
 	// static
-	
+
 	public static final int DEFAULT_TIMEOUT = 5;
 	public static final boolean USE_DEFAULT_RESOURCES = true;
-	
-	private static final Logger _Logger =
-		Logger.getLogger(CoapClientToServerConnectorTest.class.getName());
-	
+
+	private static final Logger _Logger = Logger.getLogger(CoapClientToServerConnectorTest.class.getName());
+
 	private static CoapServerGateway _ServerGateway = null;
-	
+
 	// member var's
-	
+
 	private CoapClientConnector coapClient = null;
 	private IDataMessageListener dataMsgListener = null;
-	
-	
+
 	// test setup methods
-	
+
 	/**
 	 * @throws java.lang.Exception
 	 */
 	@BeforeClass
-	public static void setUpBeforeClass() throws Exception
-	{
+	public static void setUpBeforeClass() throws Exception {
 		_ServerGateway = new CoapServerGateway(new DefaultDataMessageListener());
-		
+
 		assertTrue(_ServerGateway.startServer());
 	}
-	
+
 	/**
 	 * @throws java.lang.Exception
 	 */
 	@AfterClass
-	public static void tearDownAfterClass() throws Exception
-	{
+	public static void tearDownAfterClass() throws Exception {
 		assertTrue(_ServerGateway.stopServer());
 	}
-	
+
 	/**
 	 * @throws java.lang.Exception
 	 */
 	@Before
-	public void setUp() throws Exception
-	{
+	public void setUp() throws Exception {
 		this.coapClient = new CoapClientConnector();
 		this.dataMsgListener = new DefaultDataMessageListener();
-		
+
 		this.coapClient.setDataMessageListener(this.dataMsgListener);
 	}
-	
+
 	/**
 	 * @throws java.lang.Exception
 	 */
 	@After
-	public void tearDown() throws Exception
-	{
+	public void tearDown() throws Exception {
 	}
-	
+
 	// test methods
-	
+
 	/**
 	 * 
 	 */
 	@Test
-	public void testConnectAndDiscover()
-	{
+	public void testConnectAndDiscover() {
 		assertTrue(this.coapClient.sendDiscoveryRequest(DEFAULT_TIMEOUT));
 	}
-	
+
 }
