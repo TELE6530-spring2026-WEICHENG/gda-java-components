@@ -113,10 +113,10 @@ public class DeviceDataManager implements IDataMessageListener {
 	@Override
 	public boolean handleActuatorCommandRequest(ResourceNameEnum resourceName, ActuatorData data) {
 		if (data != null) {
-			_Logger.info("handleSensorMessage called with resource: " + resourceName.getResourceName());
+			_Logger.info("handleActuatorCommandRequest called with resource: " + resourceName.getResourceName());
 
 			if (data.hasError()) {
-				_Logger.warning("Error flag set for SensorData instance.");
+				_Logger.warning("Error flag set for ActuatorData instance.");
 			}
 
 			this.handleIncomingDataAnalysis(resourceName, data);
@@ -310,6 +310,9 @@ public class DeviceDataManager implements IDataMessageListener {
 	 * Forward JSON data to the cloud client and persistence client
 	 */
 	private boolean handleUpstreamTransmission(ResourceNameEnum resourceName, String jsonData, int qos) {
+		_Logger.info("handleUpstreamTransmission called for resource: " + resourceName.getResourceName() + "\npayload: "
+				+ jsonData);
+
 		_Logger.fine("handleUpstreamTransmission called. Resource: " + resourceName.getResourceName());
 
 		return false;
