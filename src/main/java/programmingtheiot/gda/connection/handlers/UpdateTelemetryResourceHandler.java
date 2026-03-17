@@ -50,19 +50,18 @@ public class UpdateTelemetryResourceHandler extends CoapResource {
 
                 SensorData sensorData = DataUtil.getInstance().jsonToSensorData(payload);
 
-                String deviceName = sensorData.getName();
-                long tsMillis = sensorData.getTimeStampMillis();
-
-                boolean stored = RedisPersistenceAdapter.getInstance()
-                        .storeCoapData(deviceName, tsMillis, sensorData);
-
-                if (!stored) {
-                    _Logger.info("Duplicate CoAP data detected for device: " + deviceName
-                            + ", ts: " + tsMillis + ". Skipping processing.");
-                    code = ResponseCode.CONTINUE;
-                    context.respond(code, "Duplicate request ignored: " + super.getName());
-                    return;
-                }
+                // TODO: Deduplication logic using Redis
+                // String deviceName = sensorData.getName();
+                // long tsMillis = sensorData.getTimeStampMillis();
+                // boolean stored = RedisPersistenceAdapter.getInstance()
+                // .storeCoapData(deviceName, tsMillis, sensorData);
+                // if (!stored) {
+                // _Logger.info("Duplicate CoAP data detected for device: " + deviceName
+                // + ", ts: " + tsMillis + ". Skipping processing.");
+                // code = ResponseCode.CONTINUE;
+                // context.respond(code, "Duplicate request ignored: " + super.getName());
+                // return;
+                // }
 
                 this.dataMsgListener.handleSensorMessage(ResourceNameEnum.CDA_SENSOR_MSG_RESOURCE,
                         sensorData);

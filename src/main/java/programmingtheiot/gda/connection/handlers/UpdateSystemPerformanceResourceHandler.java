@@ -44,6 +44,7 @@ public class UpdateSystemPerformanceResourceHandler extends CoapResource {
         ResponseCode code = ResponseCode.NOT_ACCEPTABLE;
 
         context.accept();
+
         if (this.dataMsgListener != null) {
             try {
                 String payload = context.getRequestText();
@@ -51,24 +52,24 @@ public class UpdateSystemPerformanceResourceHandler extends CoapResource {
                 SystemPerformanceData systemPerformanceData = DataUtil.getInstance()
                         .jsonToSystemPerformanceData(payload);
 
-                String deviceName = systemPerformanceData.getName();
-                long tsMillis = systemPerformanceData.getTimeStampMillis();
+                // Deduplication logic using Redis
+                // int mid = context.advanced().getRequest().getMID();
+                // String key = "coap:mid:" + mid;
 
-                boolean stored = RedisPersistenceAdapter.getInstance()
-                        .storeCoapData(deviceName, tsMillis, systemPerformanceData);
+                // if (RedisPersistenceAdapter.getInstance().isDuplicate(key)) {
+                // _Logger.info("Duplicate CoAP MID detected: " + mid + ". Skipping
+                // processing.");
+                // code = ResponseCode.CONTINUE;
+                // context.respond(code, "Duplicate request ignored: " + super.getName());
+                // return;
+                // }
 
-                if (!stored) {
-                    _Logger.info("Duplicate CoAP data detected for device: " + deviceName
-                            + ", ts: " + tsMillis + ". Skipping processing.");
-                    code = ResponseCode.CONTINUE;
-                    context.respond(code, "Duplicate request ignored: " + super.getName());
-                    return;
-                }
-
+                // Hand off the data to the listener
                 this.dataMsgListener.handleSystemPerformanceMessage(ResourceNameEnum.CDA_SYSTEM_PERF_MSG_RESOURCE,
                         systemPerformanceData);
 
                 code = ResponseCode.CHANGED;
+
             } catch (Exception e) {
                 _Logger.severe("Failed to process CoAP PUT request: " + e.getMessage());
                 code = ResponseCode.BAD_REQUEST;
