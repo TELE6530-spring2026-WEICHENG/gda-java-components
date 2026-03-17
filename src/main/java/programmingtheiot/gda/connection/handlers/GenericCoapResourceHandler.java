@@ -22,68 +22,56 @@ import programmingtheiot.common.ConfigUtil;
 import programmingtheiot.common.IDataMessageListener;
 import programmingtheiot.common.ResourceNameEnum;
 
-
 /**
  * Shell representation of class for student implementation.
  *
  */
-public class GenericCoapResourceHandler extends CoapResource
-{
+public class GenericCoapResourceHandler extends CoapResource {
 	// static
-	
-	private static final Logger _Logger =
-		Logger.getLogger(GenericCoapResourceHandler.class.getName());
-	
+
+	private static final Logger _Logger = Logger.getLogger(GenericCoapResourceHandler.class.getName());
+
 	// params
-	
-	
+
 	// constructors
-	
+
 	/**
 	 * Constructor.
 	 * 
 	 * @param resource Basically, the path (or topic)
 	 */
-	public GenericCoapResourceHandler(ResourceNameEnum resource)
-	{
+	public GenericCoapResourceHandler(ResourceNameEnum resource) {
 		this(resource.getResourceName());
 	}
-	
+
 	/**
 	 * Constructor.
 	 * 
 	 * @param resourceName The name of the resource.
 	 */
-	public GenericCoapResourceHandler(String resourceName)
-	{
+	public GenericCoapResourceHandler(String resourceName) {
 		super(resourceName);
 	}
-	
-	
+
 	// public methods
-	
+
 	@Override
-	public void handleDELETE(CoapExchange context)
-	{
+	public void handleDELETE(CoapExchange context) {
 	}
-	
+
 	@Override
-	public void handleGET(CoapExchange context)
-	{
+	public void handleGET(CoapExchange context) {
 	}
-	
+
 	@Override
-	public void handlePOST(CoapExchange context)
-	{
+	public void handlePOST(CoapExchange context) {
 	}
-	
+
 	@Override
-	public void handlePUT(CoapExchange context)
-	{
+	public void handlePUT(CoapExchange context) {
 	}
-	
-	public void setDataMessageListener(IDataMessageListener listener)
-	{
+
+	public void setDataMessageListener(IDataMessageListener listener) {
 	}
-	
+
 }

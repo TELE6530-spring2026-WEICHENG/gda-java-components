@@ -284,6 +284,10 @@ public class ConfigConst {
 	public static final String TEMP_DATA_PATH_KEY = "tmpDataPath";
 	public static final String TEST_EMPTY_APP_KEY = "testEmptyApp";
 
+	public static final String DEDUP_TTL_SECS_KEY = "dedupTtlSecs";
+
+	public static final String COAP_IDEM_KEY_PREFIX = "iot:coap:idem:cmd:";
+
 	public static final String ORGANIZATION_KEY = "organization";
 	public static final String DATABASE_KEY = "database";
 	public static final String ENV_DATA_BUCKET_KEY = "envDataBucket";
