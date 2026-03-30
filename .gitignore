@@ -2,6 +2,7 @@
 /target/
 **/cert
 **/cred
+docker/mosquitto/certs/
 .idea/
 /oracleJdk-21.jdk/
 .env

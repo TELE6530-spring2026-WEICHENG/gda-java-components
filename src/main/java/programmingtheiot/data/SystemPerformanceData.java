@@ -33,6 +33,7 @@ public class SystemPerformanceData extends BaseIotData implements Serializable
 	{
 		super();
 		super.setName(ConfigConst.SYS_PERF_DATA);
+		super.setTypeID(ConfigConst.SYSTEM_PERF_TYPE);
 	}
 
 
