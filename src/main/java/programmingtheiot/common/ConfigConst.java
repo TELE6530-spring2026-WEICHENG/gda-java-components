@@ -202,6 +202,12 @@ public class ConfigConst {
 
 	public static final String ENABLE_RUN_FOREVER_KEY = "enableRunForever";
 
+	public static final String HANDLE_HUMIDITY_CHANGE_ON_DEVICE_KEY = "handleHumidityChangeOnDevice";
+	public static final String HUMIDITY_MAX_TIME_PAST_THRESHOLD_KEY = "humidityMaxTimePastThreshold";
+	public static final String NOMINAL_HUMIDITY_SETTING_KEY = "nominalHumiditySetting";
+	public static final String TRIGGER_HUMIDIFIER_FLOOR_KEY = "triggerHumidifierFloor";
+	public static final String TRIGGER_HUMIDIFIER_CEILING_KEY = "triggerHumidifierCeiling";
+
 	public static final String AWS_CLOUD_SVC_NAME = "AWS";
 	public static final String AZURE_CLOUD_SVC_NAME = "Azure";
 	public static final String GCP_CLOUD_SVC_NAME = "GCP";
