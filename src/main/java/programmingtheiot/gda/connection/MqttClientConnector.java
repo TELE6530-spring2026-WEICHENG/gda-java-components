@@ -302,6 +302,11 @@ public class MqttClientConnector implements IPubSubClient, MqttCallbackExtended 
 							DataUtil.getInstance().jsonToActuatorData(msgPayload);
 						this.dataMsgListener.handleActuatorCommandResponse(resource, actuatorData);
 
+					} else if (resource == ResourceNameEnum.CDA_ACTUATOR_CMD_RESOURCE) {
+						ActuatorData actuatorData =
+							DataUtil.getInstance().jsonToActuatorData(msgPayload);
+						this.dataMsgListener.handleActuatorCommandRequest(resource, actuatorData);
+
 					} else {
 						_Logger.info("Unhandled topic, forwarding as raw message: " + topic);
 						this.dataMsgListener.handleIncomingMessage(resource, msgPayload);
