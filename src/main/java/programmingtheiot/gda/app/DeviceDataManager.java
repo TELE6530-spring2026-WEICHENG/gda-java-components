@@ -233,13 +233,6 @@ public class DeviceDataManager implements IDataMessageListener {
 
 				_Logger.info("MQTT client connected successfully.");
 
-				int qos = ConfigConst.DEFAULT_QOS;
-
-				this.mqttClient.subscribeToTopic(ResourceNameEnum.GDA_MGMT_STATUS_MSG_RESOURCE, qos);
-				this.mqttClient.subscribeToTopic(ResourceNameEnum.CDA_ACTUATOR_RESPONSE_RESOURCE, qos);
-				this.mqttClient.subscribeToTopic(ResourceNameEnum.CDA_SENSOR_MSG_RESOURCE, qos);
-				this.mqttClient.subscribeToTopic(ResourceNameEnum.CDA_SYSTEM_PERF_MSG_RESOURCE, qos);
-
 			} else {
 				_Logger.warning("Failed to connect MQTT client.");
 				// May add retry logic or hard fail here depending on requirements

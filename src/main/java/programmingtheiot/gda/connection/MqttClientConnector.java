@@ -262,6 +262,12 @@ public class MqttClientConnector implements IPubSubClient, MqttCallbackExtended 
 	public void connectComplete(boolean reconnect, String serverURI) {
 		_Logger.info("MQTT connection successful (is reconnect = " + reconnect + "). Broker: " + serverURI);
 
+		int qos = 1;
+
+		this.subscribeToTopic(ResourceNameEnum.CDA_ACTUATOR_RESPONSE_RESOURCE, qos);
+		this.subscribeToTopic(ResourceNameEnum.CDA_SENSOR_MSG_RESOURCE, qos);
+		this.subscribeToTopic(ResourceNameEnum.CDA_SYSTEM_PERF_MSG_RESOURCE, qos);
+
 	}
 
 	@Override
@@ -293,13 +299,12 @@ public class MqttClientConnector implements IPubSubClient, MqttCallbackExtended 
 						this.dataMsgListener.handleSensorMessage(resource, sensorData);
 
 					} else if (resource == ResourceNameEnum.CDA_SYSTEM_PERF_MSG_RESOURCE) {
-						SystemPerformanceData sysPerfData =
-							DataUtil.getInstance().jsonToSystemPerformanceData(msgPayload);
+						SystemPerformanceData sysPerfData = DataUtil.getInstance()
+								.jsonToSystemPerformanceData(msgPayload);
 						this.dataMsgListener.handleSystemPerformanceMessage(resource, sysPerfData);
 
 					} else if (resource == ResourceNameEnum.CDA_ACTUATOR_RESPONSE_RESOURCE) {
-						ActuatorData actuatorData =
-							DataUtil.getInstance().jsonToActuatorData(msgPayload);
+						ActuatorData actuatorData = DataUtil.getInstance().jsonToActuatorData(msgPayload);
 						this.dataMsgListener.handleActuatorCommandResponse(resource, actuatorData);
 
 					} else {
@@ -390,19 +395,18 @@ public class MqttClientConnector implements IPubSubClient, MqttCallbackExtended 
 				} else {
 					this.enableEncryption = false;
 
-					_Logger.log(Level.WARNING, "PEM file invalid. Using insecure connection: " + this.pemFileName, new Exception());
+					_Logger.log(Level.WARNING, "PEM file invalid. Using insecure connection: " + this.pemFileName,
+							new Exception());
 
 					return;
 				}
 			}
 
-			SSLSocketFactory sslFactory =
-				SimpleCertManagementUtil.getInstance().loadCertificate(this.pemFileName);
+			SSLSocketFactory sslFactory = SimpleCertManagementUtil.getInstance().loadCertificate(this.pemFileName);
 
 			this.connOpts.setSocketFactory(sslFactory);
 
-			this.port =
-				configUtil.getInteger(
+			this.port = configUtil.getInteger(
 					configSectionName, ConfigConst.SECURE_PORT_KEY, ConfigConst.DEFAULT_MQTT_SECURE_PORT);
 
 			this.protocol = ConfigConst.DEFAULT_MQTT_SECURE_PROTOCOL;
