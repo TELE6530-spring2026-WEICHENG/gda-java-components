@@ -11,18 +11,26 @@
 # Cloud client configuration information
 #
 [Cloud.GatewayService]
-credFile       = ./cred/PiotCloudCred.props
-certFile       = ./cert/PiotCloudCert.pem
-host           = localhost
-port           = 1883
+cloudServiceName = AWS
+
+#
+# AWS IoT specific configuration information
+#
+[Cloud.GatewayService.AWS]
+certFile       = ./cert/AWS/AmazonRootCA1.pem
+clientCertFile = ./cert/AWS/a3866a3c3defa7d728ef636d1d8493f1484d32b95a10e795cae9421a266b910f-certificate.pem.crt
+privateKeyFile = ./cert/AWS/a3866a3c3defa7d728ef636d1d8493f1484d32b95a10e795cae9421a266b910f-private.pem.key
+host           = a1ri7tqrp4p9wi-ats.iot.us-west-2.amazonaws.com
+port           = 8883
 securePort     = 8883
 defaultQoS     = 0
 keepAlive      = 60
 useAsyncClient = True
-enableAuth     = True
+enableAuth     = False
 enableCrypt    = True
-baseUrl        = 
-baseTopic      = 
+baseUrl        =
+baseTopic      = piot/gda/
+clientID       = GDA-Gateway
 
 #
 # SMTP client configuration information
@@ -91,9 +99,9 @@ deviceLocationID        = gatewaydevice001
 enableLogging           = True
 pollCycleSecs           = 60
 enableMqttClient        = True
-enableCoapServer        = True
+enableCoapServer        = False
 enableCoapClient        = False
-enableCloudClient       = False
+enableCloudClient       = True
 enableSmtpClient        = False
 enablePersistenceClient = False
 enableSystemPerformance = False
@@ -101,7 +109,7 @@ testGdaDataPath         = /tmp/gda-data
 testCdaDataPath         = /tmp/cda-data
 testEmptyApp            = False
 enableRunForever        = True
-handleHumidityChangeOnDevice = True
+handleHumidityChangeOnDevice = False
 humidityMaxTimePastThreshold = 3
 nominalHumiditySetting  = 40.0
 triggerHumidifierFloor  = 30.0

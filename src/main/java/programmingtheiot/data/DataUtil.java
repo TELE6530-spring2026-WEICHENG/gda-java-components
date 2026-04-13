@@ -52,8 +52,9 @@ public class DataUtil
 	public String actuatorDataToTimeAndValueJson(ActuatorData actuatorData)
 	{
 		if (actuatorData != null) {
+			TimeAndValuePayloadData tvData = new TimeAndValuePayloadData(actuatorData);
 			Gson gson = new Gson();
-			return gson.toJson(actuatorData);
+			return gson.toJson(tvData);
 		}
 		return null;
 	}
@@ -70,8 +71,9 @@ public class DataUtil
 	public String sensorDataToTimeAndValueJson(SensorData sensorData)
 	{
 		if (sensorData != null) {
+			TimeAndValuePayloadData tvData = new TimeAndValuePayloadData(sensorData);
 			Gson gson = new Gson();
-			return gson.toJson(sensorData);
+			return gson.toJson(tvData);
 		}
 		return null;
 	}
