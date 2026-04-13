@@ -268,6 +268,7 @@ public class ConfigConst {
 
 	public static final String CONFIG_FILE_KEY = "configFile";
 	public static final String CERT_FILE_KEY = "certFile";
+	public static final String CLIENT_CERT_FILE_KEY = "clientCertFile";
 	public static final String PRIVATE_KEY_FILE_KEY = "privateKeyFile";
 	public static final String CRED_FILE_KEY = "credFile";
 	public static final String ENABLE_AUTH_KEY = "enableAuth";

@@ -25,7 +25,9 @@ import programmingtheiot.data.BaseIotData;
 import programmingtheiot.data.DataUtil;
 import programmingtheiot.data.SensorData;
 import programmingtheiot.data.SystemPerformanceData;
+import programmingtheiot.gda.connection.CloudClientFactory;
 import programmingtheiot.gda.connection.CoapServerGateway;
+import programmingtheiot.gda.connection.ICloudClient;
 import programmingtheiot.gda.connection.IPersistenceClient;
 import programmingtheiot.gda.connection.IPubSubClient;
 import programmingtheiot.gda.connection.IRequestResponseClient;
@@ -52,7 +54,7 @@ public class DeviceDataManager implements IDataMessageListener {
 
 	private IActuatorDataListener actuatorDataListener = null;
 	private IPubSubClient mqttClient = null;
-	private IPubSubClient cloudClient = null;
+	private ICloudClient cloudClient = null;
 	private IPersistenceClient persistenceClient = null;
 	private IRequestResponseClient smtpClient = null;
 	private CoapServerGateway coapServer = null;
@@ -69,6 +71,8 @@ public class DeviceDataManager implements IDataMessageListener {
 	private OffsetDateTime latestHumiditySensorTimeStamp = null;
 	private ActuatorData latestHumidifierActuatorData = null;
 	private ActuatorData latestHumidifierActuatorResponse = null;
+
+	private int defaultQos = ConfigConst.DEFAULT_QOS;
 
 	// constructors
 
@@ -182,11 +186,12 @@ public class DeviceDataManager implements IDataMessageListener {
 			if (data.hasError()) {
 				_Logger.warning("Error flag set for SensorData instance.");
 			}
-			String jsonData = DataUtil.getInstance().sensorDataToJson(data);
 
-			boolean success = handleUpstreamTransmission(resourceName, jsonData, 1);
+			boolean success = handleUpstreamTransmission(resourceName, data, defaultQos);
 
-			this.handleIncomingDataAnalysis(resourceName, data);
+			_Logger.info("Upstream transmission of SensorData was " + (success ? "successful" : "unsuccessful"));
+
+			handleIncomingDataAnalysis(resourceName, data);
 
 			return true;
 		}
@@ -202,8 +207,11 @@ public class DeviceDataManager implements IDataMessageListener {
 			if (data.hasError()) {
 				_Logger.warning("Error flag set for SystemPerformanceData instance.");
 			}
-			String jsonData = DataUtil.getInstance().systemPerformanceDataToJson(data);
-			boolean success = handleUpstreamTransmission(resourceName, jsonData, 1);
+
+			boolean success = handleUpstreamTransmission(resourceName, data, defaultQos);
+
+			_Logger.info(
+					"Upstream transmission of SystemPerformanceData was " + (success ? "successful" : "unsuccessful"));
 
 			return true;
 		}
@@ -232,13 +240,6 @@ public class DeviceDataManager implements IDataMessageListener {
 			if (this.mqttClient.connectClient()) {
 
 				_Logger.info("MQTT client connected successfully.");
-
-				int qos = ConfigConst.DEFAULT_QOS;
-
-				this.mqttClient.subscribeToTopic(ResourceNameEnum.GDA_MGMT_STATUS_MSG_RESOURCE, qos);
-				this.mqttClient.subscribeToTopic(ResourceNameEnum.CDA_ACTUATOR_RESPONSE_RESOURCE, qos);
-				this.mqttClient.subscribeToTopic(ResourceNameEnum.CDA_SENSOR_MSG_RESOURCE, qos);
-				this.mqttClient.subscribeToTopic(ResourceNameEnum.CDA_SYSTEM_PERF_MSG_RESOURCE, qos);
 
 			} else {
 				_Logger.warning("Failed to connect MQTT client.");
@@ -332,7 +333,8 @@ public class DeviceDataManager implements IDataMessageListener {
 		}
 
 		if (this.enableCloudClient) {
-			// TODO: implement this in Lab Module 10
+			this.cloudClient = CloudClientFactory.getInstance().getCloudClient();
+			this.cloudClient.setDataMessageListener(this);
 		}
 
 		if (this.enablePersistenceClient) {
@@ -341,15 +343,40 @@ public class DeviceDataManager implements IDataMessageListener {
 	}
 
 	/*
-	 * Forward JSON data to the cloud client and persistence client
+	 * Forward typed IoT data to the cloud client (and, in future, the
+	 * persistence client). Dispatches on runtime type so each branch can
+	 * call the correct strongly-typed overload on ICloudClient.
 	 */
-	private boolean handleUpstreamTransmission(ResourceNameEnum resourceName, String jsonData, int qos) {
-		_Logger.info("handleUpstreamTransmission called for resource: " + resourceName.getResourceName() + "\npayload: "
-				+ jsonData);
+	private boolean handleUpstreamTransmission(ResourceNameEnum resourceName, BaseIotData data, int qos) {
+		_Logger.info(
+				"handleUpstreamTransmission called for resource: " + resourceName.getResourceName()
+						+ ", data: " + (data != null ? data.getName() : "null"));
 
-		_Logger.fine("handleUpstreamTransmission called. Resource: " + resourceName.getResourceName());
+		if (data == null) {
+			return false;
+		}
 
-		return false;
+		boolean success = false;
+
+		if (this.enableCloudClient && this.cloudClient != null) {
+			if (data instanceof SensorData) {
+				success = this.cloudClient.sendEdgeDataToCloud(resourceName, (SensorData) data);
+			} else if (data instanceof SystemPerformanceData) {
+				success = this.cloudClient.sendEdgeDataToCloud(resourceName, (SystemPerformanceData) data);
+			} else {
+				_Logger.warning(
+						"Unsupported BaseIotData subtype for upstream transmission: "
+								+ data.getClass().getSimpleName());
+			}
+
+			if (!success) {
+				_Logger.warning(
+						"Cloud upstream transmission returned false for resource: "
+								+ resourceName.getResourceName());
+			}
+		}
+
+		return success;
 	}
 
 	// Handle BaseIotData types: SensorData and SystemPerformanceData
@@ -357,8 +384,10 @@ public class DeviceDataManager implements IDataMessageListener {
 		_Logger.info("handleIncomingDataAnalysis called. Resource: " + resourceName.getResourceName());
 
 		if (data.getTypeID() == ConfigConst.HUMIDITY_SENSOR_TYPE) {
-			SensorData sensorData = (SensorData) data;
-			handleHumiditySensorAnalysis(resourceName, sensorData);
+			if (handleHumidityChangeOnDevice) {
+				SensorData sensorData = (SensorData) data;
+				handleHumiditySensorAnalysis(resourceName, sensorData);
+			}
 		} else if (data.getTypeID() == ConfigConst.SYSTEM_PERF_TYPE) {
 			SystemPerformanceData sysPerfData = (SystemPerformanceData) data;
 			handleSystemPerformanceAnalysis(resourceName, sysPerfData);
@@ -451,12 +480,6 @@ public class DeviceDataManager implements IDataMessageListener {
 	}
 
 	private void handleSystemPerformanceAnalysis(ResourceNameEnum resource, SystemPerformanceData sysPerfData) {
-		String jsonpayload = DataUtil.getInstance().systemPerformanceDataToJson(sysPerfData);
-
-		// Use MQTT client to publish SystemPerformanceData to cloud and persistence
-		// clients
-		this.handleUpstreamTransmission(resource, jsonpayload, ConfigConst.DEFAULT_QOS);
-
 		// TODO: Add any additional analysis or processing of SystemPerformanceData here
 		// if needed
 	}
