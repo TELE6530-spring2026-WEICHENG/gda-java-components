@@ -109,11 +109,13 @@ testGdaDataPath         = /tmp/gda-data
 testCdaDataPath         = /tmp/cda-data
 testEmptyApp            = False
 enableRunForever        = True
-handleHumidityChangeOnDevice = False
+handleHumidityChangeOnDevice = True
 humidityMaxTimePastThreshold = 3
 nominalHumiditySetting  = 40.0
 triggerHumidifierFloor  = 30.0
 triggerHumidifierCeiling = 50.0
+triggerFanFloor         = 50.0
+triggerFanCeiling       = 70.0
 
 # HVAC / Fan actuation on the CDA (edge-handled — GDA mirrors thresholds for record/fallback)
 handleTempChangeOnDevice = False
