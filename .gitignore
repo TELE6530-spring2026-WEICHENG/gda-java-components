@@ -7,3 +7,4 @@ docker/mosquitto/certs/
 /oracleJdk-21.jdk/
 .env
 /docs/
+/aws-lambda/

@@ -23,7 +23,7 @@ privateKeyFile = ./cert/AWS/a3866a3c3defa7d728ef636d1d8493f1484d32b95a10e795cae9
 host           = a1ri7tqrp4p9wi-ats.iot.us-west-2.amazonaws.com
 port           = 8883
 securePort     = 8883
-defaultQoS     = 0
+defaultQoS     = 1
 keepAlive      = 60
 useAsyncClient = True
 enableAuth     = False
@@ -52,7 +52,7 @@ certFile       = ./cert/ca.crt
 host           = localhost
 port           = 1883
 securePort     = 8883
-defaultQoS     = 0
+defaultQoS     = 1
 keepAlive      = 5
 enableAuth     = False
 enableCrypt    = True
@@ -114,3 +114,8 @@ humidityMaxTimePastThreshold = 3
 nominalHumiditySetting  = 40.0
 triggerHumidifierFloor  = 30.0
 triggerHumidifierCeiling = 50.0
+
+# HVAC / Fan actuation on the CDA (edge-handled — GDA mirrors thresholds for record/fallback)
+handleTempChangeOnDevice = False
+triggerHvacTempFloor     = 18.0
+triggerHvacTempCeiling   = 20.0

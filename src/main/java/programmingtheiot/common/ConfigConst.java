@@ -122,10 +122,13 @@ public class ConfigConst {
 	public static final int ENV_DEVICE_TYPE = 1000;
 	public static final int HVAC_ACTUATOR_TYPE = 1001;
 	public static final int HUMIDIFIER_ACTUATOR_TYPE = 1002;
+	public static final int FAN_ACTUATOR_TYPE = 1003;
+	public static final int WATER_PUMP_ACTUATOR_TYPE = 1004;
 
 	public static final int HUMIDITY_SENSOR_TYPE = 1010;
 	public static final int PRESSURE_SENSOR_TYPE = 1012;
 	public static final int TEMP_SENSOR_TYPE = 1013;
+	public static final int SOIL_MOISTURE_SENSOR_TYPE = 1014;
 
 	public static final int DISPLAY_DEVICE_TYPE = 2000;
 	public static final int LED_ACTUATOR_TYPE = 2001;
@@ -147,9 +150,14 @@ public class ConfigConst {
 	public static final String LED_ACTUATOR_NAME = "LedActuator";
 	public static final String HUMIDIFIER_ACTUATOR_NAME = "HumidifierActuator";
 	public static final String HVAC_ACTUATOR_NAME = "HvacActuator";
+	public static final String FAN_ACTUATOR_NAME = "FanActuator";
+	public static final String WATER_PUMP_ACTUATOR_NAME = "WaterPumpActuator";
 
+	public static final String HUMIDITY_SENSOR_NAME = "HumiditySensor";
+	public static final String PRESSURE_SENSOR_NAME = "PressureSensor";
 	// this is included here for testing purposes only
 	public static final String TEMP_SENSOR_NAME = "TempSensor";
+	public static final String SOIL_MOISTURE_SENSOR_NAME = "SoilMoistureSensor";
 
 	public static final String CPU_UTIL_NAME = "CpuUtil";
 	public static final String DISK_UTIL_NAME = "DiskUtil";
@@ -207,6 +215,10 @@ public class ConfigConst {
 	public static final String NOMINAL_HUMIDITY_SETTING_KEY = "nominalHumiditySetting";
 	public static final String TRIGGER_HUMIDIFIER_FLOOR_KEY = "triggerHumidifierFloor";
 	public static final String TRIGGER_HUMIDIFIER_CEILING_KEY = "triggerHumidifierCeiling";
+
+	public static final String HANDLE_TEMP_CHANGE_ON_DEVICE_KEY = "handleTempChangeOnDevice";
+	public static final String TRIGGER_HVAC_TEMP_FLOOR_KEY = "triggerHvacTempFloor";
+	public static final String TRIGGER_HVAC_TEMP_CEILING_KEY = "triggerHvacTempCeiling";
 
 	public static final String AWS_CLOUD_SVC_NAME = "AWS";
 	public static final String AZURE_CLOUD_SVC_NAME = "Azure";

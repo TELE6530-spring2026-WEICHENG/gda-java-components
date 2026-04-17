@@ -111,6 +111,9 @@ public class DeviceDataManager implements IDataMessageListener {
 				ConfigConst.GATEWAY_DEVICE, ConfigConst.HUMIDITY_MAX_TIME_PAST_THRESHOLD_KEY,
 				(int) this.humidityMaxTimePastThreshold);
 
+		this.defaultQos = configUtil.getInteger(
+				ConfigConst.MQTT_GATEWAY_SERVICE, ConfigConst.DEFAULT_QOS_KEY, ConfigConst.DEFAULT_QOS);
+
 		initConnections();
 
 	}
@@ -496,7 +499,7 @@ public class DeviceDataManager implements IDataMessageListener {
 		if (this.enableMqttClient && this.mqttClient != null) {
 			String jsonData = DataUtil.getInstance().actuatorDataToJson(data);
 
-			if (this.mqttClient.publishMessage(resource, jsonData, ConfigConst.DEFAULT_QOS)) {
+			if (this.mqttClient.publishMessage(resource, jsonData, this.defaultQos)) {
 				_Logger.info(
 						"Published ActuatorData command from GDA to CDA: " + data.getCommand());
 			} else {
