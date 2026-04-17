@@ -114,8 +114,8 @@ humidityMaxTimePastThreshold = 3
 nominalHumiditySetting  = 40.0
 triggerHumidifierFloor  = 30.0
 triggerHumidifierCeiling = 50.0
-triggerFanFloor         = 50.0
-triggerFanCeiling       = 70.0
+triggerFanFloor         = 68.0
+triggerFanCeiling       = 75.0
 
 # HVAC / Fan actuation on the CDA (edge-handled — GDA mirrors thresholds for record/fallback)
 handleTempChangeOnDevice = False
