@@ -13,6 +13,8 @@ package programmingtheiot.gda.app;
 
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import programmingtheiot.common.ConfigConst;
@@ -61,16 +63,16 @@ public class DeviceDataManager implements IDataMessageListener {
 	private SystemPerformanceManager sysPerfManager = null;
 
 	private boolean handleHumidityChangeOnDevice = false;
-	private float triggerHumidifierFloor = 30.0f;
-	private float triggerHumidifierCeiling = 50.0f;
-	private float nominalHumiditySetting = 40.0f;
+	private float triggerFanFloor = 50.0f;
+	private float triggerFanCeiling = 70.0f;
 	private long humidityMaxTimePastThreshold = 300;
-	private int lastKnownHumidifierCommand = ConfigConst.OFF_COMMAND;
+	private int lastKnownFanCommand = ConfigConst.OFF_COMMAND;
+	private int lastKnownWaterPumpCommand = ConfigConst.OFF_COMMAND;
 
 	private SensorData latestHumiditySensorData = null;
 	private OffsetDateTime latestHumiditySensorTimeStamp = null;
-	private ActuatorData latestHumidifierActuatorData = null;
-	private ActuatorData latestHumidifierActuatorResponse = null;
+	private ActuatorData latestFanActuatorData = null;
+	private Map<String, ActuatorData> actuatorResponseCache = new HashMap<>();
 
 	private int defaultQos = ConfigConst.DEFAULT_QOS;
 
@@ -98,14 +100,11 @@ public class DeviceDataManager implements IDataMessageListener {
 		this.handleHumidityChangeOnDevice = configUtil.getBoolean(
 				ConfigConst.GATEWAY_DEVICE, ConfigConst.HANDLE_HUMIDITY_CHANGE_ON_DEVICE_KEY);
 
-		this.triggerHumidifierFloor = configUtil.getFloat(
-				ConfigConst.GATEWAY_DEVICE, ConfigConst.TRIGGER_HUMIDIFIER_FLOOR_KEY, this.triggerHumidifierFloor);
+		this.triggerFanFloor = configUtil.getFloat(
+				ConfigConst.GATEWAY_DEVICE, ConfigConst.TRIGGER_FAN_FLOOR_KEY, this.triggerFanFloor);
 
-		this.triggerHumidifierCeiling = configUtil.getFloat(
-				ConfigConst.GATEWAY_DEVICE, ConfigConst.TRIGGER_HUMIDIFIER_CEILING_KEY, this.triggerHumidifierCeiling);
-
-		this.nominalHumiditySetting = configUtil.getFloat(
-				ConfigConst.GATEWAY_DEVICE, ConfigConst.NOMINAL_HUMIDITY_SETTING_KEY, this.nominalHumiditySetting);
+		this.triggerFanCeiling = configUtil.getFloat(
+				ConfigConst.GATEWAY_DEVICE, ConfigConst.TRIGGER_FAN_CEILING_KEY, this.triggerFanCeiling);
 
 		this.humidityMaxTimePastThreshold = configUtil.getInteger(
 				ConfigConst.GATEWAY_DEVICE, ConfigConst.HUMIDITY_MAX_TIME_PAST_THRESHOLD_KEY,
@@ -140,15 +139,39 @@ public class DeviceDataManager implements IDataMessageListener {
 				_Logger.warning("ActuatorData response indicates an error. Status code: " + data.getStatusCode());
 			}
 
-			this.latestHumidifierActuatorResponse = data;
+			this.actuatorResponseCache.put(data.getName(), data);
 
-			// TODO: Add any additional processing of actuator command responses here if
-			// needed
+			reconcileActuatorResponse(data);
 
 			return true;
 		}
 
 		return false;
+	}
+
+	/*
+	 * Compare an incoming ActuatorData response against the last-known
+	 * requested command for the same actuator. A mismatch means the CDA
+	 * either rejected, transformed, or lost the request — worth a warning
+	 * so later logic (retry / mark-unhealthy / alert) can act on it.
+	 */
+	private void reconcileActuatorResponse(ActuatorData response) {
+		String name = response.getName();
+		int expected;
+
+		if (ConfigConst.FAN_ACTUATOR_NAME.equals(name)) {
+			expected = this.lastKnownFanCommand;
+		} else if (ConfigConst.WATER_PUMP_ACTUATOR_NAME.equals(name)) {
+			expected = this.lastKnownWaterPumpCommand;
+		} else {
+			return;
+		}
+
+		if (response.getCommand() != expected) {
+			_Logger.warning(
+					name + " command mismatch. Expected: " + expected
+							+ ", received: " + response.getCommand());
+		}
 	}
 
 	@Override
@@ -403,81 +426,65 @@ public class DeviceDataManager implements IDataMessageListener {
 		_Logger.info("Analyzing humidity data from CDA: " + sensorData.getLocationID() + ". Value: "
 				+ sensorData.getValue());
 
-		boolean isLow = sensorData.getValue() < this.triggerHumidifierFloor;
-		boolean isHigh = sensorData.getValue() > this.triggerHumidifierCeiling;
+		boolean isHigh = sensorData.getValue() > this.triggerFanCeiling;
+		boolean isBackToNormal = sensorData.getValue() < this.triggerFanFloor;
 
-		if (isLow || isHigh) {
-			_Logger.info("Humidity data from CDA exceeds nominal range.");
-
+		if (isHigh && this.lastKnownFanCommand != ConfigConst.ON_COMMAND) {
 			if (this.latestHumiditySensorData == null) {
 				this.latestHumiditySensorData = sensorData;
 				this.latestHumiditySensorTimeStamp = getDateTimeFromData(sensorData);
 
 				_Logger.info(
-						"Starting humidity nominal exception timer. Waiting for seconds: "
-								+ this.humidityMaxTimePastThreshold);
+						"Humidity above fan ceiling. Starting debounce timer: "
+								+ this.humidityMaxTimePastThreshold + " seconds");
 
 				return;
-			} else {
-				OffsetDateTime curHumiditySensorTimeStamp = getDateTimeFromData(sensorData);
-
-				long diffSeconds = ChronoUnit.SECONDS.between(
-						this.latestHumiditySensorTimeStamp, curHumiditySensorTimeStamp);
-
-				_Logger.info("Checking Humidity value exception time delta: " + diffSeconds);
-
-				if (diffSeconds >= this.humidityMaxTimePastThreshold) {
-					ActuatorData ad = new ActuatorData();
-					ad.setName(ConfigConst.HUMIDIFIER_ACTUATOR_NAME);
-					ad.setLocationID(sensorData.getLocationID());
-					ad.setTypeID(ConfigConst.HUMIDIFIER_ACTUATOR_TYPE);
-					ad.setValue(this.nominalHumiditySetting);
-
-					if (isLow) {
-						ad.setCommand(ConfigConst.ON_COMMAND);
-					} else if (isHigh) {
-						ad.setCommand(ConfigConst.OFF_COMMAND);
-					}
-
-					_Logger.info(
-							"Humidity exceptional value reached. Sending actuation event to CDA: " + ad);
-
-					this.lastKnownHumidifierCommand = ad.getCommand();
-					sendActuatorCommandtoCda(ResourceNameEnum.CDA_ACTUATOR_CMD_RESOURCE, ad);
-
-					this.latestHumidifierActuatorData = ad;
-					this.latestHumiditySensorData = null;
-					this.latestHumiditySensorTimeStamp = null;
-				}
 			}
-		} else if (this.lastKnownHumidifierCommand == ConfigConst.ON_COMMAND) {
-			// Humidity is back in normal range and humidifier is ON — check if we should
-			// turn it off
-			if (this.latestHumidifierActuatorData != null) {
-				// Use actual sensor reading to decide if humidity has reached the target
-				if (sensorData.getValue() >= this.nominalHumiditySetting) {
-					this.latestHumidifierActuatorData.setCommand(ConfigConst.OFF_COMMAND);
 
-					_Logger.info(
-							"Humidity reached nominal value (" + sensorData.getValue()
-									+ " >= " + this.nominalHumiditySetting
-									+ "). Sending OFF command to CDA.");
+			OffsetDateTime curTimeStamp = getDateTimeFromData(sensorData);
+			long diffSeconds = ChronoUnit.SECONDS.between(
+					this.latestHumiditySensorTimeStamp, curTimeStamp);
 
-					sendActuatorCommandtoCda(
-							ResourceNameEnum.CDA_ACTUATOR_CMD_RESOURCE, this.latestHumidifierActuatorData);
+			_Logger.info("Checking fan trigger time delta: " + diffSeconds);
 
-					this.lastKnownHumidifierCommand = this.latestHumidifierActuatorData.getCommand();
-					this.latestHumidifierActuatorData = null;
-					this.latestHumiditySensorData = null;
-					this.latestHumiditySensorTimeStamp = null;
-				} else {
-					// Humidity still below target — keep humidifier running
-					_Logger.fine("Humidifier still on. Current humidity " + sensorData.getValue()
-							+ " < nominal " + this.nominalHumiditySetting + ". Waiting.");
-				}
+			if (diffSeconds >= this.humidityMaxTimePastThreshold) {
+				ActuatorData ad = new ActuatorData();
+				ad.setName(ConfigConst.FAN_ACTUATOR_NAME);
+				ad.setLocationID(sensorData.getLocationID());
+				ad.setTypeID(ConfigConst.FAN_ACTUATOR_TYPE);
+				ad.setValue(sensorData.getValue());
+				ad.setCommand(ConfigConst.ON_COMMAND);
+
+				_Logger.info(
+						"Humidity sustained above fan ceiling. Sending FAN ON to CDA: " + ad);
+
+				this.lastKnownFanCommand = ad.getCommand();
+				sendActuatorCommandtoCda(ResourceNameEnum.CDA_ACTUATOR_CMD_RESOURCE, ad);
+
+				this.latestFanActuatorData = ad;
+				this.latestHumiditySensorData = null;
+				this.latestHumiditySensorTimeStamp = null;
+			}
+		} else if (isBackToNormal && this.lastKnownFanCommand == ConfigConst.ON_COMMAND) {
+			if (this.latestFanActuatorData != null) {
+				this.latestFanActuatorData.setCommand(ConfigConst.OFF_COMMAND);
+				this.latestFanActuatorData.setValue(sensorData.getValue());
+
+				_Logger.info(
+						"Humidity dropped below fan floor (" + sensorData.getValue()
+								+ " < " + this.triggerFanFloor
+								+ "). Sending FAN OFF to CDA.");
+
+				sendActuatorCommandtoCda(
+						ResourceNameEnum.CDA_ACTUATOR_CMD_RESOURCE, this.latestFanActuatorData);
+
+				this.lastKnownFanCommand = this.latestFanActuatorData.getCommand();
+				this.latestFanActuatorData = null;
+				this.latestHumiditySensorData = null;
+				this.latestHumiditySensorTimeStamp = null;
 			} else {
 				_Logger.warning(
-						"ERROR: ActuatorData for humidifier is null (shouldn't be). Can't send OFF command.");
+						"ERROR: latestFanActuatorData is null when trying to send FAN OFF.");
 			}
 		}
 	}

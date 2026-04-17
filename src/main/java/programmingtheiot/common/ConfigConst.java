@@ -215,6 +215,8 @@ public class ConfigConst {
 	public static final String NOMINAL_HUMIDITY_SETTING_KEY = "nominalHumiditySetting";
 	public static final String TRIGGER_HUMIDIFIER_FLOOR_KEY = "triggerHumidifierFloor";
 	public static final String TRIGGER_HUMIDIFIER_CEILING_KEY = "triggerHumidifierCeiling";
+	public static final String TRIGGER_FAN_FLOOR_KEY = "triggerFanFloor";
+	public static final String TRIGGER_FAN_CEILING_KEY = "triggerFanCeiling";
 
 	public static final String HANDLE_TEMP_CHANGE_ON_DEVICE_KEY = "handleTempChangeOnDevice";
 	public static final String TRIGGER_HVAC_TEMP_FLOOR_KEY = "triggerHvacTempFloor";
