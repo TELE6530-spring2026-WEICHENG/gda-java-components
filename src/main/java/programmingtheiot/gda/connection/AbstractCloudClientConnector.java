@@ -17,6 +17,7 @@ import programmingtheiot.common.ConfigConst;
 import programmingtheiot.common.ConfigUtil;
 import programmingtheiot.common.IDataMessageListener;
 import programmingtheiot.common.ResourceNameEnum;
+import programmingtheiot.data.ActuatorData;
 import programmingtheiot.data.SensorData;
 import programmingtheiot.data.SystemPerformanceData;
 
@@ -184,6 +185,17 @@ public abstract class AbstractCloudClientConnector implements ICloudClient, ICon
 	}
 
 	@Override
+	public boolean sendEdgeDataToCloud(ResourceNameEnum resource, ActuatorData data) {
+		if (resource != null && data != null) {
+			String payload = formatActuatorDataPayload(data);
+
+			return publishMessageToCloud(resource, data.getName(), payload);
+		}
+
+		return false;
+	}
+
+	@Override
 	public boolean subscribeToCloudEvents(ResourceNameEnum resource) {
 		return false;
 	}
@@ -200,6 +212,12 @@ public abstract class AbstractCloudClientConnector implements ICloudClient, ICon
 	 * the concrete cloud provider (e.g. Ubidots time/value JSON, AWS full JSON).
 	 */
 	protected abstract String formatSensorDataPayload(SensorData data);
+
+	/**
+	 * Serialize an ActuatorData instance into the payload format expected by
+	 * the concrete cloud provider.
+	 */
+	protected abstract String formatActuatorDataPayload(ActuatorData data);
 
 	/**
 	 * Build the full topic name for a given resource + item (e.g. "cpuUtil").

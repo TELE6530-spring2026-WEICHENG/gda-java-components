@@ -181,6 +181,12 @@ public class AwsIotCoreClientConnector extends AbstractCloudClientConnector
 	}
 
 	@Override
+	protected String formatActuatorDataPayload(ActuatorData data)
+	{
+		return DataUtil.getInstance().actuatorDataToJson(data);
+	}
+
+	@Override
 	protected String createTopicName(ResourceNameEnum resource, String itemName)
 	{
 		return createBaseTopicName(resource) + "/" + itemName;

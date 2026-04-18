@@ -143,6 +143,17 @@ public class DeviceDataManager implements IDataMessageListener {
 
 			reconcileActuatorResponse(data);
 
+			if (this.enableCloudClient && this.cloudClient != null) {
+				boolean published = this.cloudClient.sendEdgeDataToCloud(
+						ResourceNameEnum.CDA_ACTUATOR_RESPONSE_RESOURCE, data);
+
+				if (!published) {
+					_Logger.warning(
+							"Failed to publish actuator response to cloud. Name: "
+									+ data.getName());
+				}
+			}
+
 			return true;
 		}
 

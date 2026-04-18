@@ -10,6 +10,7 @@ package programmingtheiot.gda.connection;
 
 import programmingtheiot.common.IDataMessageListener;
 import programmingtheiot.common.ResourceNameEnum;
+import programmingtheiot.data.ActuatorData;
 import programmingtheiot.data.SensorData;
 import programmingtheiot.data.SystemPerformanceData;
 
@@ -56,6 +57,19 @@ public interface ICloudClient
 	 * @return bool True on success, False otherwise.
 	 */
 	public boolean sendEdgeDataToCloud(ResourceNameEnum resource, SystemPerformanceData data);
+
+	/**
+	 * Attempts to send the given actuator data instance to the remote cloud
+	 * service. Default is a no-op that returns false, so providers without an
+	 * upstream actuator-response path don't need to implement it.
+	 *
+	 * @param resource The resource enum to use for this send request.
+	 * @param data     The actuator data instance to publish to the cloud service.
+	 * @return bool True on success, False otherwise.
+	 */
+	default boolean sendEdgeDataToCloud(ResourceNameEnum resource, ActuatorData data) {
+		return false;
+	}
 
 	/**
 	 * Attempts to subscribe to events destined for edge consumption that are
