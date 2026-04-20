@@ -97,7 +97,7 @@ enableAuth = True
 [GatewayDevice]
 deviceLocationID        = gatewaydevice001
 enableLogging           = True
-pollCycleSecs           = 60
+pollCycleSecs           = 10
 enableMqttClient        = True
 enableCoapServer        = False
 enableCoapClient        = False
