@@ -1,0 +1,20 @@
+[Unit]
+Description=Gateway Device App (TELE6530)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=weicheng
+Group=weicheng
+WorkingDirectory=/home/weicheng/project/gda-java-components
+ExecStart=/usr/bin/java -jar /home/weicheng/project/gda-java-components/target/gateway-device-app-0.0.1-jar-with-dependencies.jar -c /home/weicheng/project/gda-java-components/config/PiotConfig.props
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gda
+Environment=JAVA_TOOL_OPTIONS=-Xmx256m
+
+[Install]
+WantedBy=multi-user.target
