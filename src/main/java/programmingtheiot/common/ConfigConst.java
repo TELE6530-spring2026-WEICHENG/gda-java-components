@@ -222,6 +222,19 @@ public class ConfigConst {
 	public static final String TRIGGER_HVAC_TEMP_FLOOR_KEY = "triggerHvacTempFloor";
 	public static final String TRIGGER_HVAC_TEMP_CEILING_KEY = "triggerHvacTempCeiling";
 
+	public static final String HANDLE_SOIL_MOISTURE_CHANGE_ON_DEVICE_KEY = "handleSoilMoistureChangeOnDevice";
+	public static final String SOIL_MOISTURE_MAX_TIME_PAST_THRESHOLD_KEY = "soilMoistureMaxTimePastThreshold";
+	public static final String NOMINAL_SOIL_MOISTURE_SETTING_KEY = "nominalSoilMoistureSetting";
+	public static final String TRIGGER_WATER_PUMP_FLOOR_KEY = "triggerWaterPumpFloor";
+
+	public static final String IRRIGATION_PHASE_OPENED    = "OPENED";
+	public static final String IRRIGATION_PHASE_PROGRESS  = "PROGRESS";
+	public static final String IRRIGATION_PHASE_COMPLETED = "COMPLETED";
+	public static final String IRRIGATION_PHASE_ABORTED   = "ABORTED";
+
+	public static final String IRRIGATION_ACTION_START  = "START";
+	public static final String IRRIGATION_ACTION_CANCEL = "CANCEL";
+
 	public static final String AWS_CLOUD_SVC_NAME = "AWS";
 	public static final String AZURE_CLOUD_SVC_NAME = "Azure";
 	public static final String GCP_CLOUD_SVC_NAME = "GCP";

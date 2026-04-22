@@ -121,3 +121,11 @@ triggerFanCeiling       = 75.0
 handleTempChangeOnDevice = False
 triggerHvacTempFloor     = 18.0
 triggerHvacTempCeiling   = 20.0
+
+# Water pump / soil moisture analysis — GDA kicks off an irrigation session when soil
+# moisture stays below triggerWaterPumpFloor for soilMoistureMaxTimePastThreshold seconds.
+# CDA runs the pulse-wait-sense loop autonomously until nominalSoilMoistureSetting is met.
+handleSoilMoistureChangeOnDevice = True
+soilMoistureMaxTimePastThreshold = 3
+nominalSoilMoistureSetting       = 50.0
+triggerWaterPumpFloor            = 30.0

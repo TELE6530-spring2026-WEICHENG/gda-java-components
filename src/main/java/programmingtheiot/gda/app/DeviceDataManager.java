@@ -14,8 +14,12 @@ package programmingtheiot.gda.app;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.logging.Logger;
+
+import com.google.gson.Gson;
 
 import programmingtheiot.common.ConfigConst;
 import programmingtheiot.common.ConfigUtil;
@@ -25,6 +29,7 @@ import programmingtheiot.common.ResourceNameEnum;
 import programmingtheiot.data.ActuatorData;
 import programmingtheiot.data.BaseIotData;
 import programmingtheiot.data.DataUtil;
+import programmingtheiot.data.IrrigationStatePayload;
 import programmingtheiot.data.SensorData;
 import programmingtheiot.data.SystemPerformanceData;
 import programmingtheiot.gda.connection.CloudClientFactory;
@@ -69,9 +74,17 @@ public class DeviceDataManager implements IDataMessageListener {
 	private int lastKnownFanCommand = ConfigConst.OFF_COMMAND;
 	private int lastKnownWaterPumpCommand = ConfigConst.OFF_COMMAND;
 
+	private boolean handleSoilMoistureChangeOnDevice = false;
+	private float triggerWaterPumpFloor = 30.0f;
+	private float nominalSoilMoistureSetting = 50.0f;
+	private long soilMoistureMaxTimePastThreshold = 3;
+	private String currentIrrigationSessionId = null;
+
 	private SensorData latestHumiditySensorData = null;
 	private OffsetDateTime latestHumiditySensorTimeStamp = null;
 	private ActuatorData latestFanActuatorData = null;
+	private SensorData latestSoilMoistureSensorData = null;
+	private OffsetDateTime latestSoilMoistureSensorTimeStamp = null;
 	private Map<String, ActuatorData> actuatorResponseCache = new HashMap<>();
 
 	private int defaultQos = ConfigConst.DEFAULT_QOS;
@@ -110,6 +123,20 @@ public class DeviceDataManager implements IDataMessageListener {
 				ConfigConst.GATEWAY_DEVICE, ConfigConst.HUMIDITY_MAX_TIME_PAST_THRESHOLD_KEY,
 				(int) this.humidityMaxTimePastThreshold);
 
+		this.handleSoilMoistureChangeOnDevice = configUtil.getBoolean(
+				ConfigConst.GATEWAY_DEVICE, ConfigConst.HANDLE_SOIL_MOISTURE_CHANGE_ON_DEVICE_KEY);
+
+		this.triggerWaterPumpFloor = configUtil.getFloat(
+				ConfigConst.GATEWAY_DEVICE, ConfigConst.TRIGGER_WATER_PUMP_FLOOR_KEY, this.triggerWaterPumpFloor);
+
+		this.nominalSoilMoistureSetting = configUtil.getFloat(
+				ConfigConst.GATEWAY_DEVICE, ConfigConst.NOMINAL_SOIL_MOISTURE_SETTING_KEY,
+				this.nominalSoilMoistureSetting);
+
+		this.soilMoistureMaxTimePastThreshold = configUtil.getInteger(
+				ConfigConst.GATEWAY_DEVICE, ConfigConst.SOIL_MOISTURE_MAX_TIME_PAST_THRESHOLD_KEY,
+				(int) this.soilMoistureMaxTimePastThreshold);
+
 		this.defaultQos = configUtil.getInteger(
 				ConfigConst.MQTT_GATEWAY_SERVICE, ConfigConst.DEFAULT_QOS_KEY, ConfigConst.DEFAULT_QOS);
 
@@ -141,6 +168,10 @@ public class DeviceDataManager implements IDataMessageListener {
 
 			this.actuatorResponseCache.put(data.getName(), data);
 
+			if (ConfigConst.WATER_PUMP_ACTUATOR_NAME.equals(data.getName())) {
+				parseAndLogIrrigationState(data);
+			}
+
 			reconcileActuatorResponse(data);
 
 			if (this.enableCloudClient && this.cloudClient != null) {
@@ -168,12 +199,19 @@ public class DeviceDataManager implements IDataMessageListener {
 	 */
 	private void reconcileActuatorResponse(ActuatorData response) {
 		String name = response.getName();
+
+		// Water pump runs a multi-phase irrigation session on the CDA, so the response
+		// command toggles between ON (OPENED/PROGRESS) and OFF (COMPLETED/ABORTED).
+		// The real signal is the phase inside IrrigationStatePayload, not the command
+		// int, so a simple expected-vs-received check would misfire.
+		if (ConfigConst.WATER_PUMP_ACTUATOR_NAME.equals(name)) {
+			return;
+		}
+
 		int expected;
 
 		if (ConfigConst.FAN_ACTUATOR_NAME.equals(name)) {
 			expected = this.lastKnownFanCommand;
-		} else if (ConfigConst.WATER_PUMP_ACTUATOR_NAME.equals(name)) {
-			expected = this.lastKnownWaterPumpCommand;
 		} else {
 			return;
 		}
@@ -182,6 +220,45 @@ public class DeviceDataManager implements IDataMessageListener {
 			_Logger.warning(
 					name + " command mismatch. Expected: " + expected
 							+ ", received: " + response.getCommand());
+		}
+	}
+
+	/*
+	 * Parse the JSON irrigation-state envelope the CDA tucks into stateData and
+	 * log it. On COMPLETED or ABORTED we also clear currentIrrigationSessionId
+	 * so handleSoilMoistureSensorAnalysis can start a fresh session next time
+	 * moisture drops below the floor.
+	 */
+	private void parseAndLogIrrigationState(ActuatorData data) {
+		String sd = data.getStateData();
+		if (sd == null || sd.trim().isEmpty()) {
+			return;
+		}
+		try {
+			IrrigationStatePayload p = new Gson().fromJson(sd, IrrigationStatePayload.class);
+			if (p == null || p.getPhase() == null) {
+				return;
+			}
+			_Logger.info(
+					String.format(
+							"Irrigation phase=%s session=%s pulse=%d moisture=%.1f target=%.1f reason=%s",
+							p.getPhase(),
+							p.getSessionId(),
+							p.getPulseCount(),
+							p.getCurrentMoisture(),
+							p.getTargetMoisture(),
+							p.getReason() == null ? "-" : p.getReason()));
+
+			if (ConfigConst.IRRIGATION_PHASE_COMPLETED.equals(p.getPhase())
+					|| ConfigConst.IRRIGATION_PHASE_ABORTED.equals(p.getPhase())) {
+				if (p.getSessionId() != null
+						&& p.getSessionId().equals(this.currentIrrigationSessionId)) {
+					this.currentIrrigationSessionId = null;
+					this.lastKnownWaterPumpCommand = ConfigConst.OFF_COMMAND;
+				}
+			}
+		} catch (Exception e) {
+			_Logger.warning("Failed to parse irrigation state payload: " + sd);
 		}
 	}
 
@@ -425,6 +502,11 @@ public class DeviceDataManager implements IDataMessageListener {
 				SensorData sensorData = (SensorData) data;
 				handleHumiditySensorAnalysis(resourceName, sensorData);
 			}
+		} else if (data.getTypeID() == ConfigConst.SOIL_MOISTURE_SENSOR_TYPE) {
+			if (handleSoilMoistureChangeOnDevice) {
+				SensorData sensorData = (SensorData) data;
+				handleSoilMoistureSensorAnalysis(resourceName, sensorData);
+			}
 		} else if (data.getTypeID() == ConfigConst.SYSTEM_PERF_TYPE) {
 			SystemPerformanceData sysPerfData = (SystemPerformanceData) data;
 			handleSystemPerformanceAnalysis(resourceName, sysPerfData);
@@ -505,7 +587,86 @@ public class DeviceDataManager implements IDataMessageListener {
 		// if needed
 	}
 
+	/*
+	 * Mirrors handleHumiditySensorAnalysis but drives the water pump instead of the
+	 * fan. When soil moisture stays below triggerWaterPumpFloor for
+	 * soilMoistureMaxTimePastThreshold seconds, GDA sends a single irrigation START
+	 * command carrying the target (nominalSoilMoistureSetting). The CDA then runs the
+	 * pulse-wait-sense loop on its own and emits OPENED/PROGRESS/COMPLETED/ABORTED
+	 * via ActuatorData.stateData — GDA does NOT send an OFF here, because stopping
+	 * is the CDA's responsibility once target moisture is reached.
+	 */
+	private void handleSoilMoistureSensorAnalysis(ResourceNameEnum resource, SensorData sensorData) {
+
+		_Logger.info("Analyzing soil moisture data from CDA: " + sensorData.getLocationID()
+				+ ". Value: " + sensorData.getValue());
+
+		float value = sensorData.getValue();
+		boolean isLow = value < this.triggerWaterPumpFloor;
+
+		// If moisture is back above floor, clear any pending debounce state.
+		if (!isLow) {
+			if (this.latestSoilMoistureSensorData != null) {
+				_Logger.info("Soil moisture back above floor; clearing debounce state.");
+				this.latestSoilMoistureSensorData = null;
+				this.latestSoilMoistureSensorTimeStamp = null;
+			}
+			return;
+		}
+
+		// A session is already running on the CDA; don't start another one.
+		if (this.currentIrrigationSessionId != null) {
+			_Logger.info(
+					"Soil moisture still low but irrigation session "
+							+ this.currentIrrigationSessionId
+							+ " already active. Skipping.");
+			return;
+		}
+
+		// First sample below floor: arm the debounce window and wait.
+		if (this.latestSoilMoistureSensorData == null) {
+			this.latestSoilMoistureSensorData = sensorData;
+			this.latestSoilMoistureSensorTimeStamp = getDateTimeFromData(sensorData);
+
+			_Logger.info(
+					"Soil moisture below water-pump floor. Starting debounce timer: "
+							+ this.soilMoistureMaxTimePastThreshold + " seconds");
+			return;
+		}
+
+		OffsetDateTime curTimeStamp = getDateTimeFromData(sensorData);
+		long diffSeconds = ChronoUnit.SECONDS.between(
+				this.latestSoilMoistureSensorTimeStamp, curTimeStamp);
+
+		_Logger.info("Checking water-pump trigger time delta: " + diffSeconds);
+
+		if (diffSeconds >= this.soilMoistureMaxTimePastThreshold) {
+			ActuatorData ad = new ActuatorData();
+			ad.setName(ConfigConst.WATER_PUMP_ACTUATOR_NAME);
+			ad.setLocationID(sensorData.getLocationID());
+			ad.setTypeID(ConfigConst.WATER_PUMP_ACTUATOR_TYPE);
+			ad.setValue(this.nominalSoilMoistureSetting);
+			ad.setCommand(ConfigConst.ON_COMMAND);
+
+			_Logger.info(
+					"Soil moisture sustained below floor. Sending WATER PUMP START to CDA: " + ad);
+
+			this.lastKnownWaterPumpCommand = ad.getCommand();
+			sendActuatorCommandtoCda(ResourceNameEnum.CDA_ACTUATOR_CMD_RESOURCE, ad);
+
+			this.latestSoilMoistureSensorData = null;
+			this.latestSoilMoistureSensorTimeStamp = null;
+		}
+	}
+
 	private void sendActuatorCommandtoCda(ResourceNameEnum resource, ActuatorData data) {
+
+		// Water-pump commands must carry a {sessionId, action} JSON envelope in
+		// stateData so the CDA can correlate retransmits and cancel the right
+		// session. Other actuators pass through untouched.
+		if (data != null && data.getTypeID() == ConfigConst.WATER_PUMP_ACTUATOR_TYPE) {
+			ensureWaterPumpEnvelope(data);
+		}
 
 		// Send ActuatorData command to CDA via CoAP by using the observer pattern.
 		if (this.enableCoapServer && this.coapServer != null) {
@@ -525,6 +686,65 @@ public class DeviceDataManager implements IDataMessageListener {
 						"Failed to publish ActuatorData command from GDA to CDA: " + data.getCommand());
 			}
 		}
+	}
+
+	/*
+	 * Fill in or reuse the {sessionId, action} envelope on a water-pump command.
+	 *  - ON command + missing/invalid stateData: mint a new sessionId + action=START,
+	 *    and remember it as the current session.
+	 *  - OFF command: reuse currentIrrigationSessionId (if we have one) and set
+	 *    action=CANCEL so the CDA stops the right session.
+	 *  - Any pre-existing sessionId / action in stateData is preserved (useful when
+	 *    the cloud or a retry has already chosen an id).
+	 */
+	private void ensureWaterPumpEnvelope(ActuatorData data) {
+		String existing = data.getStateData();
+		String sessionId = null;
+		String action = null;
+
+		if (existing != null && !existing.trim().isEmpty()) {
+			try {
+				@SuppressWarnings("unchecked")
+				Map<String, Object> parsed = new Gson().fromJson(existing, Map.class);
+				if (parsed != null) {
+					Object sid = parsed.get("sessionId");
+					if (sid != null) {
+						sessionId = sid.toString();
+					}
+					Object a = parsed.get("action");
+					if (a != null) {
+						action = a.toString();
+					}
+				}
+			} catch (Exception e) {
+				// stateData wasn't JSON we recognize — fall through and rebuild it.
+			}
+		}
+
+		if (data.getCommand() == ConfigConst.ON_COMMAND) {
+			if (sessionId == null) {
+				sessionId = UUID.randomUUID().toString().substring(0, 8);
+			}
+			if (action == null) {
+				action = ConfigConst.IRRIGATION_ACTION_START;
+			}
+			this.currentIrrigationSessionId = sessionId;
+		} else {
+			if (sessionId == null) {
+				sessionId = this.currentIrrigationSessionId;
+			}
+			if (sessionId == null) {
+				sessionId = "unknown";
+			}
+			if (action == null) {
+				action = ConfigConst.IRRIGATION_ACTION_CANCEL;
+			}
+		}
+
+		Map<String, String> envelope = new LinkedHashMap<>();
+		envelope.put("sessionId", sessionId);
+		envelope.put("action", action);
+		data.setStateData(new Gson().toJson(envelope));
 	}
 
 	private OffsetDateTime getDateTimeFromData(BaseIotData data) {
