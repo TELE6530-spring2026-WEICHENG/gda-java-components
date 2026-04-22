@@ -271,6 +271,36 @@ public class DeviceDataManager implements IDataMessageListener {
 				_Logger.warning("Error flag set for ActuatorData instance.");
 			}
 
+			// Per-actuator pre-processing is collected here so sendActuatorCommandtoCda
+			// can stay a pure transport step (CoAP push + local MQTT publish).
+			//
+			// Fan: sync cloud-issued commands with the local humidity-trigger state.
+			// Without this, handleHumiditySensorAnalysis would re-issue a duplicate
+			// ON (lastKnownFanCommand would still read OFF) and
+			// reconcileActuatorResponse would flag the CDA's ACK as a mismatch.
+			// Holding latestFanActuatorData on ON also lets the local floor-crossing
+			// path later emit a matching OFF with the same name/typeID/locationID.
+			if (data.getTypeID() == ConfigConst.FAN_ACTUATOR_TYPE
+					|| ConfigConst.FAN_ACTUATOR_NAME.equals(data.getName())) {
+				_Logger.info(
+						"Cloud fan actuator command received. Command: "
+								+ data.getCommand() + ", value: " + data.getValue());
+
+				this.lastKnownFanCommand = data.getCommand();
+
+				if (data.getCommand() == ConfigConst.ON_COMMAND) {
+					this.latestFanActuatorData = data;
+				} else {
+					this.latestFanActuatorData = null;
+				}
+			}
+
+			// Water pump: stamp the {sessionId, action} stateData envelope so the
+			// CDA can correlate retransmits and cancel the right irrigation session.
+			if (data.getTypeID() == ConfigConst.WATER_PUMP_ACTUATOR_TYPE) {
+				ensureWaterPumpEnvelope(data);
+			}
+
 			this.sendActuatorCommandtoCda(resourceName, data);
 
 			return true;
@@ -660,13 +690,6 @@ public class DeviceDataManager implements IDataMessageListener {
 	}
 
 	private void sendActuatorCommandtoCda(ResourceNameEnum resource, ActuatorData data) {
-
-		// Water-pump commands must carry a {sessionId, action} JSON envelope in
-		// stateData so the CDA can correlate retransmits and cancel the right
-		// session. Other actuators pass through untouched.
-		if (data != null && data.getTypeID() == ConfigConst.WATER_PUMP_ACTUATOR_TYPE) {
-			ensureWaterPumpEnvelope(data);
-		}
 
 		// Send ActuatorData command to CDA via CoAP by using the observer pattern.
 		if (this.enableCoapServer && this.coapServer != null) {

@@ -13,6 +13,7 @@ package programmingtheiot.gda.connection;
 
 import java.util.logging.Logger;
 
+import programmingtheiot.common.ConfigConst;
 import programmingtheiot.common.ResourceNameEnum;
 import programmingtheiot.data.ActuatorData;
 import programmingtheiot.data.DataUtil;
