@@ -72,6 +72,10 @@ public class DeviceDataManager implements IDataMessageListener {
 	private float triggerFanCeiling = 70.0f;
 	private long humidityMaxTimePastThreshold = 300;
 	private int lastKnownFanCommand = ConfigConst.OFF_COMMAND;
+	// True only when the local humidity analyzer issued the current ON.
+	// Cloud-originated ONs set this false so humidity-normal won't auto-OFF
+	// a fan that the user/cloud manually commanded on.
+	private boolean fanTriggeredLocally = false;
 	private int lastKnownWaterPumpCommand = ConfigConst.OFF_COMMAND;
 
 	private boolean handleSoilMoistureChangeOnDevice = false;
@@ -287,6 +291,10 @@ public class DeviceDataManager implements IDataMessageListener {
 								+ data.getCommand() + ", value: " + data.getValue());
 
 				this.lastKnownFanCommand = data.getCommand();
+
+				// Cloud-issued command: mark as NOT locally triggered so the
+				// humidity-normal branch won't later auto-OFF this fan.
+				this.fanTriggeredLocally = false;
 
 				if (data.getCommand() == ConfigConst.ON_COMMAND) {
 					this.latestFanActuatorData = data;
@@ -582,6 +590,7 @@ public class DeviceDataManager implements IDataMessageListener {
 						"Humidity sustained above fan ceiling. Sending FAN ON to CDA: " + ad);
 
 				this.lastKnownFanCommand = ad.getCommand();
+				this.fanTriggeredLocally = true;
 				sendActuatorCommandtoCda(ResourceNameEnum.CDA_ACTUATOR_CMD_RESOURCE, ad);
 
 				this.latestFanActuatorData = ad;
@@ -589,6 +598,14 @@ public class DeviceDataManager implements IDataMessageListener {
 				this.latestHumiditySensorTimeStamp = null;
 			}
 		} else if (isBackToNormal && this.lastKnownFanCommand == ConfigConst.ON_COMMAND) {
+			// Only auto-OFF when GDA itself turned the fan on. A cloud/manual ON
+			// is treated as an override and must be cleared by another cloud cmd.
+			if (!this.fanTriggeredLocally) {
+				_Logger.info(
+						"Humidity back to normal, but fan ON is a cloud override. Skipping auto-OFF.");
+				return;
+			}
+
 			if (this.latestFanActuatorData != null) {
 				this.latestFanActuatorData.setCommand(ConfigConst.OFF_COMMAND);
 				this.latestFanActuatorData.setValue(sensorData.getValue());
@@ -602,6 +619,7 @@ public class DeviceDataManager implements IDataMessageListener {
 						ResourceNameEnum.CDA_ACTUATOR_CMD_RESOURCE, this.latestFanActuatorData);
 
 				this.lastKnownFanCommand = this.latestFanActuatorData.getCommand();
+				this.fanTriggeredLocally = false;
 				this.latestFanActuatorData = null;
 				this.latestHumiditySensorData = null;
 				this.latestHumiditySensorTimeStamp = null;
